@@ -1,0 +1,8 @@
+*.exe
+*.identcache
+*.dcu
+*.dsk
+*.~dsk
+*.local
+*.FDB
+*.rsm

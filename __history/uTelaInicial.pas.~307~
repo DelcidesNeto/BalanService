@@ -1,0 +1,352 @@
+unit uTelaInicial;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, ACBrBase, ACBrBAL, ACBrCargaBal, System.Threading,
+  Vcl.StdCtrls, ACBrPosPrinter, ACBrETQ, IniFiles, Vcl.ExtCtrls,
+  Vcl.Imaging.pngimage, Vcl.Imaging.jpeg, Vcl.Menus, VclTee.TeeGDIPlus,
+  VCLTee.TeeProcs, VCLTee.TeeDraw3D;
+
+
+type TDadosArqIni = record
+  CaminhoBancoDeDados : String;
+  Porta               : String;
+  Servidor            : String;
+  TipoDeConexao       : Integer;
+  Usuario             : String;
+  Senha               : String;
+  CodProdutoBalanca   : String;
+  PortaImpressora     : String;
+  ModeloBalanca       : Integer;
+  PortaComBalanca     : String;
+  ModeloImpressora    : Integer;
+end;
+
+
+type
+  TfrmTelaPrincipal = class(TForm)
+    Balanca: TACBrBAL;
+    ImpressoraTermica: TACBrPosPrinter;
+    ImagemDeFundo: TImage;
+    PopupMenu: TPopupMenu;
+    PopupMenu11: TMenuItem;
+    Draw3D1: TDraw3D;
+    LabelBalanca: TStaticText;
+    procedure BalancaLePeso(Peso: Double; Resposta: AnsiString);
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormResize(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure PopupMenu11Click(Sender: TObject);
+  private
+    { Private declarations }
+    var GClicouNoBotao: Boolean;
+    function GetPrecoProduto: Double;
+    function GetTemplateImpressora: String;
+    procedure EnviarImpressao(NomeEstabelecimento, NomeDoPrato, Peso, PrecoPorKg,
+        PrecoTotal, CodigoDeBarras: String);
+    function GetCodigoDeBarras(APreco: String): String;
+  public
+    { Public declarations }
+    procedure SetarDadosNoBanco;
+    function GetDadosArqIni: TDadosArqIni;
+    procedure SetDadosArqIni;
+    var KeyCript: String;
+    var GLendo: Boolean;
+      PesoAtual: Double;
+      UltimoPeso: Double;
+  end;
+
+var
+  frmTelaPrincipal: TfrmTelaPrincipal;
+
+implementation
+
+{$R *.dfm}
+
+uses uTelaCredenciasDoBancoDeDados, dmUtils, uTelaMudarImagemDeFundo;
+
+procedure TfrmTelaPrincipal.BalancaLePeso(Peso: Double; Resposta: AnsiString);
+var
+  PrecoBancoDeDados: Double;
+  PrecoCodigoDeBarras: String;
+begin
+  PesoAtual := Peso;
+  if PesoAtual = 0 then
+    begin
+      UltimoPeso := 0;
+      LabelBalanca.Caption := 'Coloque o prato sobre a balança...';
+      Self.FormResize(Self);
+      Sleep(500);
+    end;
+
+  if (PesoAtual <> UltimoPeso) and (PesoAtual > 0) then
+    begin
+      UltimoPeso := PesoAtual;
+      PrecoBancoDeDados := GetPrecoProduto;
+      PrecoCodigoDeBarras := FormatFloat('0.00', PrecoBancoDeDados*PesoAtual).Replace(',', '');
+      while Length(PrecoCodigoDeBarras) < 6 do
+        PrecoCodigoDeBarras := '0'+PrecoCodigoDeBarras;
+      try
+        LabelBalanca.Caption := 'Aguarde...';
+        Self.FormResize(Self);
+        Sleep(500);
+        EnviarImpressao('Comércio Teste', 'Self Service', FormatFloat('0.000', PesoAtual), FloatToStr(PrecoBancoDeDados), FormatFloat('0.00', PrecoBancoDeDados*PesoAtual), GetCodigoDeBarras(PrecoCodigoDeBarras));
+        Sleep(500);
+        LabelBalanca.Caption := 'Retire o prato. Bom apetite!';
+        Self.FormResize(Self);
+      except
+        on E: Exception do
+          begin
+            TThread.Synchronize(nil, procedure begin ShowMessage('Chame um funcionário.'+sLineBreak+'Ocorreu o seguinte erro: '+E.Message); end);
+            LabelBalanca.Caption := 'Coloque o prato sobre a balança...';
+            Self.FormResize(Self);
+            Sleep(500);
+          end;
+      end;
+    end;
+end;
+
+procedure TfrmTelaPrincipal.FormCreate(Sender: TObject);
+begin
+  GLendo := True;
+  GClicouNoBotao := False;
+  KeyCript := 'Neto@tvsd.com.br';
+end;
+
+procedure TfrmTelaPrincipal.EnviarImpressao(NomeEstabelecimento, NomeDoPrato, Peso, PrecoPorKg, PrecoTotal, CodigoDeBarras: String);
+var
+  DadosArqIni: TDadosArqIni;
+begin
+  DadosArqIni := GetDadosArqIni;
+  ImpressoraTermica.Modelo := ppCustomPos;
+  ImpressoraTermica.Porta := DadosArqIni.PortaImpressora;
+
+  ImpressoraTermica.Ativar;
+  ImpressoraTermica.Buffer.Text := GetTemplateImpressora.Replace('{{nome_estabelecimento}}', NomeEstabelecimento).Replace('{{nome_prato}}', NomeDoPrato).Replace('{{peso}}', Peso).Replace('{{preco_kg}}', PrecoPorKg).Replace('{{preco_total}}', PrecoTotal).Replace('{{codigo_de_barras}}', CodigoDeBarras);
+
+  ImpressoraTermica.Imprimir;
+  ImpressoraTermica.PularLinhas(10);
+  ImpressoraTermica.CortarPapel(True);
+  ImpressoraTermica.Desativar;
+end;
+
+procedure TfrmTelaPrincipal.FormClose(Sender: TObject; var Action:
+    TCloseAction);
+begin
+  GLendo := False;
+  Balanca.Desativar;
+end;
+
+procedure TfrmTelaPrincipal.FormKeyDown(Sender: TObject; var Key: Word; Shift:
+    TShiftState);
+begin
+  if (Key = VK_SPACE) and (ssCtrl in Shift) and (ssAlt in Shift) and (ssShift in Shift) then
+    begin
+      frmTelaCredenciaisDoBancoDeDados := TfrmTelaCredenciaisDoBancoDeDados.Create(nil);
+      try
+        frmTelaCredenciaisDoBancoDeDados.ShowModal;
+      finally
+        frmTelaCredenciaisDoBancoDeDados.Free;
+      end;
+    end
+  else if Key = VK_ESCAPE then
+    WindowState := TWindowState.wsNormal;
+
+end;
+
+procedure TfrmTelaPrincipal.FormResize(Sender: TObject);
+var
+  Monitor: TMonitor;
+begin
+  Draw3D1.Top := Self.Height-120;
+  LabelBalanca.Left := Trunc(Draw3D1.Width/2-LabelBalanca.Width/2);
+  Monitor := Screen.MonitorFromWindow(Handle);
+  if WindowState = TWindowState.wsMaximized then
+    begin
+      SetWindowPos(Handle, HWND_TOPMOST, Monitor.Left, Monitor.Top, Monitor.Width, Monitor.Height, SWP_NOZORDER);
+      frmTelaPrincipal.BorderStyle := bsNone;
+    end
+  else
+    frmTelaPrincipal.BorderStyle := bsSizeable;
+
+end;
+
+procedure TfrmTelaPrincipal.FormShow(Sender: TObject);
+var
+  DadosArqIni: TDadosArqIni;
+  ArquivoIni: TIniFile;
+  CaminhoImagemArqIni: String;
+begin
+  SetarDadosNoBanco;
+  DadosArqIni := GetDadosArqIni;
+  Balanca.Modelo := TACBrBALModelo(DadosArqIni.ModeloBalanca);
+  Balanca.Porta := DadosArqIni.PortaComBalanca;
+  ArquivoIni := TIniFile.Create(ExtractFilePath(ParamStr(0))+'CONFIG.ini');
+  try
+    CaminhoImagemArqIni := ArquivoIni.ReadString('Background', 'ImagemDeFundo', 'NullKey');
+    if CaminhoImagemArqIni <> 'NullKey' then
+      begin
+        ImagemDeFundo.Picture.LoadFromFile(CaminhoImagemArqIni);
+      end;
+
+  finally
+    ArquivoIni.Free;
+  end;
+  TTask.Run(procedure
+  begin
+    while GLendo do
+      begin
+        try
+          Balanca.LePeso(1);
+        except
+          on E: Exception do
+            begin
+              if GLendo then
+                TThread.Synchronize(nil, procedure begin ShowMessage(E.Message) end);
+            end;
+        end;
+      end;
+  end);
+end;
+
+function TfrmTelaPrincipal.GetCodigoDeBarras(APreco: String): String;
+var
+  Barcode: String;
+  Codigo: String;
+  DadosArqIni: TDadosArqIni;
+begin
+  DadosArqIni := GetDadosArqIni;
+  Codigo := DadosArqIni.CodProdutoBalanca;
+  while Length(Codigo) < 4 do
+    Codigo := '0'+Codigo;
+  Barcode := '2'+Codigo+'0'+APreco;
+  Result := Barcode;
+
+end;
+
+function TfrmTelaPrincipal.GetDadosArqIni: TDadosArqIni;
+var
+  ArquivoIni: TIniFile;
+  CaminhoDatabase: String;
+  DadosConexao: TDadosArqIni;
+  PortaArqIni: String;
+  ServidorArqIni: String;
+begin
+  ArquivoIni := TIniFile.Create(ExtractFilePath(ParamStr(0))+'CONFIG.ini');
+  try
+    CaminhoDatabase := ArquivoIni.ReadString('Software', 'Database', 'NullKey');
+    if CaminhoDatabase <> 'NullKey' then
+      begin
+        DadosConexao.TipoDeConexao := ArquivoIni.ReadString('Software', 'TipoDeConexao', 'NullKey').ToInteger;
+        ServidorArqIni := ArquivoIni.ReadString('Software', 'Servidor', 'NullKey');
+        PortaArqIni := ArquivoIni.ReadString('Software', 'Porta', 'NullKey');
+        if ServidorArqIni <> '' then
+          ServidorArqIni := dtmUtils.Descriptografar(ServidorArqIni, KeyCript);
+        if PortaArqIni <> '' then
+          PortaArqIni := dtmUtils.Descriptografar(PortaArqIni, KeyCript);
+        DadosConexao.Servidor := ServidorArqIni;
+        DadosConexao.Porta := PortaArqIni;
+        DadosConexao.CaminhoBancoDeDados := dtmUtils.Descriptografar(CaminhoDatabase, KeyCript);
+        DadosConexao.Usuario := dtmUtils.Descriptografar(ArquivoIni.ReadString('Software', 'Usuario', 'NullKey'), KeyCript);
+        DadosConexao.Senha := dtmUtils.Descriptografar(ArquivoIni.ReadString('Software', 'Senha', 'NullKey'), KeyCript);
+        DadosConexao.CodProdutoBalanca := ArquivoIni.ReadString('Impressao', 'CodigoProdutoBalanca', 'NullKey');
+        DadosConexao.PortaImpressora := ArquivoIni.ReadString('Impressao', 'PortaImpressora', 'NullKey');
+        DadosConexao.ModeloImpressora := ArquivoIni.ReadString('Impressao', 'ModeloImpressora', 'NullKey').ToInteger;
+        DadosConexao.ModeloBalanca := ArquivoIni.ReadString('Balanca', 'ModeloBalanca', 'NullKey').ToInteger;
+        DadosConexao.PortaComBalanca := ArquivoIni.ReadString('Balanca', 'PortaComBalanca', 'NullKey');
+        Result := DadosConexao;
+      end;
+
+  finally
+    ArquivoIni.Free;
+  end;
+end;
+
+function TfrmTelaPrincipal.GetPrecoProduto: Double;
+var
+  DadosArqIni: TDadosArqIni;
+begin
+  DadosArqIni := GetDadosArqIni;
+  var Query := dtmUtils.QryResult(Format('select pvenda from produtos where cod_balanca = %s', [DadosArqIni.CodProdutoBalanca]));
+  if not Query.IsEmpty then
+    Result := StrToFloat(Query.FieldByName('PVENDA').AsString);
+end;
+
+function TfrmTelaPrincipal.GetTemplateImpressora: String;
+var
+  Arquivo: TStringList;
+begin
+  Arquivo := TStringList.Create;
+  try
+    Arquivo.LoadFromFile(ExtractFilePath(ParamStr(0))+'model.txt', TEncoding.UTF8);
+    Result := Arquivo.Text;
+  finally
+    Arquivo.Free;
+  end;
+end;
+
+procedure TfrmTelaPrincipal.PopupMenu11Click(Sender: TObject);
+begin
+  frmTelaMudarImagemDeFundo := TfrmTelaMudarImagemDeFundo.Create(nil);
+  try
+    frmTelaMudarImagemDeFundo.ShowModal;
+  finally
+    frmTelaMudarImagemDeFundo.Free;
+  end;
+end;
+
+procedure TfrmTelaPrincipal.SetarDadosNoBanco;
+var
+  DadosArquivoIni: TDadosArqIni;
+  PortaBanco: Integer;
+  ServerBanco: Integer;
+begin
+  DadosArquivoIni := GetDadosArqIni;
+  PortaBanco := dtmUtils.Banco.Params.IndexOfName('Port');
+  if PortaBanco <> -1 then // Serve pra se a pessoa alterar algo no banco de dados, já ser atualizado em tempo real, sem ter a necessidade de abrir e fechar o sistema novamente.
+    begin
+      dtmUtils.Banco.Params.Delete(PortaBanco);
+      ServerBanco := dtmUtils.Banco.Params.IndexOfName('Server');
+      dtmUtils.Banco.Params.Delete(ServerBanco);
+    end;
+
+  if DadosArquivoIni.TipoDeConexao <> 0 then
+    begin
+      dtmUtils.Banco.Params.Add('Server='+DadosArquivoIni.Servidor);
+      dtmUtils.Banco.Params.Add('Port='+DadosArquivoIni.Porta);
+    end;
+  dtmUtils.Banco.Params.UserName := DadosArquivoIni.Usuario;
+  dtmUtils.Banco.Params.Password := DadosArquivoIni.Senha;
+  dtmUtils.Banco.Params.Database := DadosArquivoIni.CaminhoBancoDeDados;
+
+end;
+
+procedure TfrmTelaPrincipal.SetDadosArqIni;
+var
+  ArquivoIni: TIniFile;
+  ServidorArqIni: String;
+  PortaArqIni: String;
+begin
+  ArquivoIni := TIniFile.Create(ExtractFilePath(ParamStr(0))+'CONFIG.ini');
+  try
+    ArquivoIni.WriteString('Software', 'Database', dtmUtils.Criptografar(frmTelaCredenciaisDoBancoDeDados.CaminhoBancoDeDados.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'TipoDeConexao', frmTelaCredenciaisDoBancoDeDados.TipoDeConexao.ItemIndex.ToString);
+    ArquivoIni.WriteString('Software', 'Servidor', dtmUtils.Criptografar(frmTelaCredenciaisDoBancoDeDados.Servidor.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'Porta', dtmUtils.Criptografar(frmTelaCredenciaisDoBancoDeDados.Porta.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'Usuario', dtmUtils.Criptografar(frmTelaCredenciaisDoBancoDeDados.Usuario.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'Senha', dtmUtils.Criptografar(frmTelaCredenciaisDoBancoDeDados.Senha.Text, KeyCript));
+    ArquivoIni.WriteString('Impressao', 'CodigoProdutoBalanca', frmTelaCredenciaisDoBancoDeDados.CodigoProdutoBalanca.Text);
+    ArquivoIni.WriteString('Impressao', 'PortaImpressora', frmTelaCredenciaisDoBancoDeDados.PortaImpressora.Text);
+    ArquivoIni.WriteString('Impressao', 'ModeloImpressora', frmTelaCredenciaisDoBancoDeDados.ModeloImpressora.ItemIndex.ToString);
+    ArquivoIni.WriteString('Balanca', 'ModeloBalanca', frmTelaCredenciaisDoBancoDeDados.ModeloBalanca.ItemIndex.ToString);
+    ArquivoIni.WriteString('Balanca', 'PortaComBalanca', frmTelaCredenciaisDoBancoDeDados.PortaComBalanca.Text);
+  finally
+    ArquivoIni.Free;
+  end;
+end;
+
+end.

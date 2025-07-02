@@ -1,0 +1,38 @@
+unit uTelaMudarImagemDeFundo;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  System.ImageList, Vcl.ImgList, Vcl.Buttons;
+
+type
+  TForm1 = class(TForm)
+    Image1: TImage;
+    FileOpenDialog: TFileOpenDialog;
+    Edit1: TEdit;
+    frmTelaImagemDeFundo: TLabel;
+    SpeedButton1: TSpeedButton;
+    ImageList1: TImageList;
+    procedure SpeedButton1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+
+procedure TForm1.SpeedButton1Click(Sender: TObject);
+begin
+  FileOpenDialog.Execute;
+
+end;
+
+end.

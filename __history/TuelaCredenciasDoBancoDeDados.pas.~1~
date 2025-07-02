@@ -1,0 +1,231 @@
+unit TelaCredenciasDoBancoDeDados;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, VCLTee.TeCanvas,
+  Vcl.ComCtrls, Vcl.Buttons, System.ImageList, Vcl.ImgList, IniFiles;
+
+
+type DadosArqIni = record
+  CaminhoBancoDeDados : String;
+  Porta               : String;
+  Servidor            : String;
+  TipoDeConexao       : Integer;
+  Usuario             : String;
+  Senha               : String;
+end;
+
+type
+  TfrmTelaCredenciasDoBancoDeDados = class(TForm)
+    Label1: TLabel;
+    Servidor: TEdit;
+    CaptionServidor: TLabel;
+    LabelPorta: TLabel;
+    Porta: TEdit;
+    Label4: TLabel;
+    Usuario: TEdit;
+    Label5: TLabel;
+    Senha: TEdit;
+    Label6: TLabel;
+    CaminhoBancoDeDados: TEdit;
+    BotaoSelecionarBancoDeDados: TSpeedButton;
+    BotaoSalvar: TButton;
+    TipoDeConexao: TComboBox;
+    ImageList: TImageList;
+    procedure FormCreate(Sender: TObject);
+    procedure BotaoSalvarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure BotaoSelecionarBancoDeDadosClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure TipoDeConexaoChange(Sender: TObject);
+
+  private
+    { Private declarations }
+    procedure SetDadosArqIni;
+    procedure SetarDadosNoBanco;
+    function GetDadosArqIni: DadosArqIni;
+    var KeyCript: String;
+  public
+    { Public declarations }
+  end;
+
+var
+  frmTelaCredenciasDoBancoDeDados: TfrmTelaCredenciasDoBancoDeDados;
+
+implementation
+
+{$R *.dfm}
+
+uses dmUtils;
+
+
+procedure TfrmTelaCredenciasDoBancoDeDados.FormCreate(Sender: TObject);
+begin
+  KeyCript := 'Neto@tvsd.com.br';
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.BotaoSalvarClick(Sender: TObject);
+begin
+  if (CaminhoBancoDeDados.Text <> '') and (Usuario.Text <> '') and (Senha.Text <> '') then
+    begin
+      SetDadosArqIni;
+      SetarDadosNoBanco;
+      Self.Close;
+    end
+  else
+    ShowMessage('Preencha os corretamente campos do Local do Banco de dados, Usuário e Senha!');
+
+
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.FormShow(Sender: TObject);
+var
+  DadosArquivoIni: DadosArqIni;
+begin
+  DadosArquivoIni := GetDadosArqIni;
+  TipoDeConexao.ItemIndex := DadosArquivoIni.TipoDeConexao;
+  if TipoDeConexao.ItemHeight <> 0 then
+    begin
+      Servidor.Text := DadosArquivoIni.Servidor;
+      Porta.Text := DadosArquivoIni.Porta;
+    end;
+  CaminhoBancoDeDados.Text := DadosArquivoIni.CaminhoBancoDeDados;
+  Usuario.Text := DadosArquivoIni.Usuario;
+  Senha.Text := DadosArquivoIni.Senha;
+  TipoDeConexaoChange(Self);
+
+  CaminhoBancoDeDados.SetFocus;
+end;
+
+function TfrmTelaCredenciasDoBancoDeDados.GetDadosArqIni: DadosArqIni;
+var
+  ArquivoIni: TIniFile;
+  CaminhoDatabase: String;
+  DadosConexao: DadosArqIni;
+  PortaArqIni: String;
+  ServidorArqIni: String;
+begin
+  ArquivoIni := TIniFile.Create(ExtractFilePath(ParamStr(0))+'CONFIG.ini');
+  try
+    CaminhoDatabase := ArquivoIni.ReadString('Software', 'Database', 'NullKey');
+    if CaminhoDatabase <> 'NullKey' then
+      begin
+        DadosConexao.TipoDeConexao := ArquivoIni.ReadString('Software', 'TipoDeConexao', 'NullKey').ToInteger;
+        ServidorArqIni := ArquivoIni.ReadString('Software', 'Servidor', 'NullKey');
+        PortaArqIni := ArquivoIni.ReadString('Software', 'Porta', 'NullKey');
+        if ServidorArqIni <> '' then
+          ServidorArqIni := dtmUtils.Descriptografar(ServidorArqIni, KeyCript);
+        if PortaArqIni <> '' then
+          PortaArqIni := dtmUtils.Descriptografar(PortaArqIni, KeyCript);
+        DadosConexao.Servidor := ServidorArqIni;
+        DadosConexao.Porta := PortaArqIni;
+        DadosConexao.CaminhoBancoDeDados := dtmUtils.Descriptografar(CaminhoDatabase, KeyCript);
+        DadosConexao.Usuario := dtmUtils.Descriptografar(ArquivoIni.ReadString('Software', 'Usuario', 'NullKey'), KeyCript);
+        DadosConexao.Senha := dtmUtils.Descriptografar(ArquivoIni.ReadString('Software', 'Senha', 'NullKey'), KeyCript);
+        Result := DadosConexao;
+      end;
+
+  finally
+    ArquivoIni.Free;
+  end;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.SetarDadosNoBanco;
+var
+  DadosArquivoIni: DadosArqIni;
+  PortaBanco: Integer;
+  ServerBanco: Integer;
+begin
+  DadosArquivoIni := GetDadosArqIni;
+  PortaBanco := dtmUtils.Banco.Params.IndexOfName('Port');
+  if PortaBanco <> -1 then // Serve pra se a pessoa alterar algo no banco de dados, já ser atualizado em tempo real, sem ter a necessidade de abrir e fechar o sistema novamente.
+    begin
+      dtmUtils.Banco.Params.Delete(PortaBanco);
+      ServerBanco := dtmUtils.Banco.Params.IndexOfName('Server');
+      dtmUtils.Banco.Params.Delete(ServerBanco);
+    end;
+
+  if DadosArquivoIni.TipoDeConexao <> 0 then
+    begin
+      dtmUtils.Banco.Params.Add('Server='+DadosArquivoIni.Servidor);
+      dtmUtils.Banco.Params.Add('Port='+DadosArquivoIni.Porta);
+    end;
+  dtmUtils.Banco.Params.UserName := DadosArquivoIni.Usuario;
+  dtmUtils.Banco.Params.Password := DadosArquivoIni.Senha;
+  dtmUtils.Banco.Params.Database := DadosArquivoIni.CaminhoBancoDeDados;
+
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.SetDadosArqIni;
+var
+  ArquivoIni: TIniFile;
+  ServidorArqIni: String;
+  PortaArqIni: String;
+begin
+  ArquivoIni := TIniFile.Create(ExtractFilePath(ParamStr(0))+'CONFIG.ini');
+  try
+    ArquivoIni.WriteString('Software', 'Database', dtmUtils.Criptografar(frmTelaCredenciasDoBancoDeDados.CaminhoBancoDeDados.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'TipoDeConexao', frmTelaCredenciasDoBancoDeDados.TipoDeConexao.ItemIndex.ToString);
+    ArquivoIni.WriteString('Software', 'Servidor', dtmUtils.Criptografar(frmTelaCredenciasDoBancoDeDados.Servidor.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'Porta', dtmUtils.Criptografar(frmTelaCredenciasDoBancoDeDados.Porta.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'Usuario', dtmUtils.Criptografar(frmTelaCredenciasDoBancoDeDados.Usuario.Text, KeyCript));
+    ArquivoIni.WriteString('Software', 'Senha', dtmUtils.Criptografar(frmTelaCredenciasDoBancoDeDados.Senha.Text, KeyCript));
+  finally
+    ArquivoIni.Free;
+  end;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.BotaoSelecionarBancoDeDadosClick(Sender: TObject);
+var
+  EscolherBanco: TOpenDialog;
+begin
+  EscolherBanco := TOpenDialog.Create(nil);
+  try
+    EscolherBanco.Title := 'Escolha sua Base de Dados';
+    EscolherBanco.Filter := '(*.fdb)|*.fdb';
+    EscolherBanco.Execute();
+    if EscolherBanco.FileName <> '' then
+      begin
+        CaminhoBancoDeDados.Text := EscolherBanco.FileName;
+
+      end
+  finally
+    EscolherBanco.Free;
+  end;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.FormKeyDown(Sender: TObject; var
+    Key: Word; Shift: TShiftState);
+begin
+  if (Key = Ord('S')) and (ssCtrl in Shift) then
+    BotaoSalvarClick(BotaoSalvar);
+  if Key = VK_ESCAPE then
+    Self.Close;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.TipoDeConexaoChange(Sender: TObject);
+var
+  DicaServidor: String;
+  StatusShow: Boolean;
+begin
+  if TipoDeConexao.ItemIndex = 0 then
+    begin
+      DicaServidor := 'Nome do servidor ex: "localhost"';
+      Servidor.Enabled := False;
+      StatusShow := False;
+      Servidor.Text := '';
+      Porta.Text := '';
+    end
+  else
+    begin
+      DicaServidor := 'IP ou nome do servidor ex: 168.254.245.254';
+      Servidor.Enabled := True;
+      StatusShow := True;
+    end;
+  Porta.Enabled := StatusShow;
+  CaptionServidor.Caption := DicaServidor;
+end;
+
+end.

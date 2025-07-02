@@ -1,0 +1,140 @@
+unit TelaCredenciasDoBancoDeDados;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, VCLTee.TeCanvas,
+  Vcl.ComCtrls, Vcl.Buttons, System.ImageList, Vcl.ImgList, IniFiles;
+
+type
+  TfrmTelaCredenciasDoBancoDeDados = class(TForm)
+    Label1: TLabel;
+    Servidor: TEdit;
+    CaptionServidor: TLabel;
+    LabelPorta: TLabel;
+    Porta: TEdit;
+    Label4: TLabel;
+    Usuario: TEdit;
+    Label5: TLabel;
+    Senha: TEdit;
+    Label6: TLabel;
+    CaminhoBancoDeDados: TEdit;
+    BotaoSelecionarBancoDeDados: TSpeedButton;
+    BotaoSalvar: TButton;
+    TipoDeConexao: TComboBox;
+    ImageList: TImageList;
+    procedure BotaoSalvarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure BotaoSelecionarBancoDeDadosClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure TipoDeConexaoChange(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  frmTelaCredenciasDoBancoDeDados: TfrmTelaCredenciasDoBancoDeDados;
+
+implementation
+
+{$R *.dfm}
+
+uses TelaProvaFinal, TelaConexao;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.BotaoSalvarClick(Sender: TObject);
+var
+  NomeBancoDeDados: String;
+  CaminhoParaPegarNomeDoBancoDeDados: String;
+begin
+  if (CaminhoBancoDeDados.Text <> '') and (Usuario.Text <> '') and (Senha.Text <> '') then
+    begin
+      frmTelaProvaFinal.BordaVincularBancoDeDados.Visible := False;
+      frmTelaProvaFinal.BotaoConfigurarBancoDeDados.Font.Color := $006102;
+      frmTelaProvaFinal.BotaoConfigurarBancoDeDados.ImageIndex := 3;
+      CaminhoParaPegarNomeDoBancoDeDados := CaminhoBancoDeDados.Text;
+      NomeBancoDeDados := CaminhoParaPegarNomeDoBancoDeDados.Substring(CaminhoParaPegarNomeDoBancoDeDados.LastIndexOf('\')+1);
+      frmTelaProvaFinal.BotaoConfigurarBancoDeDados.Hint := Format('"%s" Conectado.', [NomeBancoDeDados]);
+      frmTelaProvaFinal.SetDadosArqIni;
+      frmTelaProvaFinal.SetarDadosNoBanco;
+      Self.Close;
+    end
+  else
+    ShowMessage('Preencha os corretamente campos do Local do Banco de dados, Usuário e Senha!');
+
+
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.FormShow(Sender: TObject);
+var
+  DadosArquivoIni: DadosArqIni;
+begin
+  DadosArquivoIni := frmTelaProvaFinal.GetDadosArqIni;
+  TipoDeConexao.ItemIndex := DadosArquivoIni.TipoDeConexao;
+  if TipoDeConexao.ItemHeight <> 0 then
+    begin
+      Servidor.Text := DadosArquivoIni.Servidor;
+      Porta.Text := DadosArquivoIni.Porta;
+    end;
+  CaminhoBancoDeDados.Text := DadosArquivoIni.CaminhoBancoDeDados;
+  Usuario.Text := DadosArquivoIni.Usuario;
+  Senha.Text := DadosArquivoIni.Senha;
+  TipoDeConexaoChange(Self);
+
+  CaminhoBancoDeDados.SetFocus;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.BotaoSelecionarBancoDeDadosClick(Sender: TObject);
+var
+  EscolherBanco: TOpenDialog;
+begin
+  EscolherBanco := TOpenDialog.Create(nil);
+  try
+    EscolherBanco.Title := 'Escolha sua Base de Dados';
+    EscolherBanco.Filter := '(*.fdb)|*.fdb';
+    EscolherBanco.Execute();
+    if EscolherBanco.FileName <> '' then
+      begin
+        CaminhoBancoDeDados.Text := EscolherBanco.FileName;
+
+      end
+  finally
+    EscolherBanco.Free;
+  end;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.FormKeyDown(Sender: TObject; var
+    Key: Word; Shift: TShiftState);
+begin
+  if (Key = Ord('S')) and (ssCtrl in Shift) then
+    BotaoSalvarClick(BotaoSalvar);
+  if Key = VK_ESCAPE then
+    Self.Close;
+end;
+
+procedure TfrmTelaCredenciasDoBancoDeDados.TipoDeConexaoChange(Sender: TObject);
+var
+  DicaServidor: String;
+  StatusShow: Boolean;
+begin
+  if TipoDeConexao.ItemIndex = 0 then
+    begin
+      DicaServidor := 'Nome do servidor ex: "localhost"';
+      Servidor.Enabled := False;
+      StatusShow := False;
+      Servidor.Text := '';
+      Porta.Text := '';
+    end
+  else
+    begin
+      DicaServidor := 'IP ou nome do servidor ex: 168.254.245.254';
+      Servidor.Enabled := True;
+      StatusShow := True;
+    end;
+  Porta.Enabled := StatusShow;
+  CaptionServidor.Caption := DicaServidor;
+end;
+
+end.

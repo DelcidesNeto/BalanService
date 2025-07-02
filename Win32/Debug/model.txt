@@ -1,0 +1,11 @@
+<e><ce>{{nome_estabelecimento}}</ce></e>
+</lf>
+<a><ce>{{nome_prato}}</ce></a>
+</lf>
+<ae>Peso: {{peso}}kg</ae>
+<ae>Preço/kg: R$ {{preco_kg}}</ae>
+</linha_simples>
+<e><n>TOTAL: R${{preco_total}}</n></e>
+</linha_simples>
+</ce><ean13>{{codigo_de_barras}}</ean13>
+</lf><ce>Obrigado pela preferência!</ce>

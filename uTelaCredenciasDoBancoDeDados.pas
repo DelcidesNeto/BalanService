@@ -1,0 +1,189 @@
+unit uTelaCredenciasDoBancoDeDados;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, VCLTee.TeCanvas,
+  Vcl.ComCtrls, Vcl.Buttons, System.ImageList, Vcl.ImgList, IniFiles, ACBrBase,
+  ACBrBAL, TypInfo, ACBrPosPrinter;
+
+
+type
+  TfrmTelaCredenciaisDoBancoDeDados = class(TForm)
+    BotaoSalvar: TButton;
+    ImageList: TImageList;
+    BalancaTemp: TACBrBAL;
+    GroupBox1: TGroupBox;
+    Label1: TLabel;
+    TipoDeConexao: TComboBox;
+    CaptionServidor: TLabel;
+    Servidor: TEdit;
+    LabelPorta: TLabel;
+    Porta: TEdit;
+    Label6: TLabel;
+    CaminhoBancoDeDados: TEdit;
+    BotaoSelecionarBancoDeDados: TSpeedButton;
+    Label4: TLabel;
+    Usuario: TEdit;
+    Label5: TLabel;
+    Senha: TEdit;
+    GroupBox2: TGroupBox;
+    Label2: TLabel;
+    CodigoProdutoBalanca: TEdit;
+    Label3: TLabel;
+    PortaImpressora: TEdit;
+    GroupBox3: TGroupBox;
+    PortaComBalanca: TEdit;
+    Label8: TLabel;
+    Label7: TLabel;
+    ModeloBalanca: TComboBox;
+    Label9: TLabel;
+    ModeloImpressora: TComboBox;
+    procedure FormCreate(Sender: TObject);
+    procedure BotaoSalvarClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure BotaoSelecionarBancoDeDadosClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure TipoDeConexaoChange(Sender: TObject);
+
+  private
+    { Private declarations }
+
+  public
+    { Public declarations }
+    procedure Aviso(ATitulo, AMsg: String; AIcone:
+        TMsgDlgType=TMsgDlgType.mtWarning);
+  end;
+
+var
+  frmTelaCredenciaisDoBancoDeDados: TfrmTelaCredenciaisDoBancoDeDados;
+
+implementation
+
+{$R *.dfm}
+
+uses dmUtils, uTelaInicial;
+
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.FormCreate(Sender: TObject);
+var
+  DadosArquivoIni: TDadosArqIni;
+begin
+  DadosArquivoIni := frmTelaPrincipal.GetDadosArqIni;
+  for var I := Low(TACBrBALModelo) to High(TACBrBALModelo) do
+    begin
+      BalancaTemp.Modelo := TACBrBALModelo(I);
+      ModeloBalanca.Items.Add(BalancaTemp.ModeloStr);
+    end;
+  ModeloBalanca.ItemIndex := frmTelaPrincipal.GetDadosArqIni.ModeloBalanca;
+  for var I := Low(ACBrPosPrinter.TACBrPosPrinterModelo) to High(ACBrPosPrinter.TACBrPosPrinterModelo) do
+    begin
+      ModeloImpressora.Items.Add(GetEnumName(TypeInfo(ACBrPosPrinter.TACBrPosPrinterModelo), Integer(I)));
+    end;
+  ModeloImpressora.ItemIndex := DadosArquivoIni.ModeloImpressora;
+end;
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.Aviso(ATitulo, AMsg: String; AIcone: TMsgDlgType=TMsgDlgType.mtWarning);
+var Aviso: TForm;
+begin
+  Aviso := CreateMessageDialog(AMsg, AIcone, [TMsgDlgBtn.mbOK]);
+  Aviso.Caption := ATitulo;
+  try
+    Aviso.ShowModal;
+  finally
+    Aviso.Free;
+  end;
+
+end;
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.BotaoSalvarClick(Sender: TObject);
+begin
+  if (CaminhoBancoDeDados.Text <> '') and (Usuario.Text <> '') and (Senha.Text <> '') and (CodigoProdutoBalanca.Text <> '') and (PortaImpressora.Text <> '') and (PortaComBalanca.Text <> '') then
+    begin
+      frmTelaPrincipal.SetDadosArqIni;
+      frmTelaPrincipal.SetarDadosNoBanco;
+      Aviso('Reinicie o Sistema!', 'Dados Salvos!'+sLineBreak+'É necessário fechar e abrir o sistema novamente para que as configurações sejam aplicadas!');
+      Self.Close;
+    end
+  else
+    ShowMessage('É necessário preencher todos os campos!');
+
+
+end;
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.FormShow(Sender: TObject);
+var
+  DadosArquivoIni: TDadosArqIni;
+begin
+  DadosArquivoIni := frmTelaPrincipal.GetDadosArqIni;
+  TipoDeConexao.ItemIndex := DadosArquivoIni.TipoDeConexao;
+  if TipoDeConexao.ItemHeight <> 0 then
+    begin
+      Servidor.Text := DadosArquivoIni.Servidor;
+      Porta.Text := DadosArquivoIni.Porta;
+    end;
+  CaminhoBancoDeDados.Text := DadosArquivoIni.CaminhoBancoDeDados;
+  CodigoProdutoBalanca.Text := DadosArquivoIni.CodProdutoBalanca;
+  PortaImpressora.Text := DadosArquivoIni.PortaImpressora;
+  Usuario.Text := DadosArquivoIni.Usuario;
+  Senha.Text := DadosArquivoIni.Senha;
+  PortaComBalanca.Text := DadosArquivoIni.PortaComBalanca;
+  TipoDeConexaoChange(Self);
+
+  CaminhoBancoDeDados.SetFocus;
+end;
+
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.BotaoSelecionarBancoDeDadosClick(Sender: TObject);
+var
+  EscolherBanco: TOpenDialog;
+begin
+  EscolherBanco := TOpenDialog.Create(nil);
+  try
+    EscolherBanco.Title := 'Escolha sua Base de Dados';
+    EscolherBanco.Filter := '(*.fdb)|*.fdb';
+    EscolherBanco.Execute();
+    if EscolherBanco.FileName <> '' then
+      begin
+        CaminhoBancoDeDados.Text := EscolherBanco.FileName;
+
+      end
+  finally
+    EscolherBanco.Free;
+  end;
+end;
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.FormKeyDown(Sender: TObject; var
+    Key: Word; Shift: TShiftState);
+begin
+  if (Key = Ord('S')) and (ssCtrl in Shift) then
+    BotaoSalvarClick(BotaoSalvar);
+  if Key = VK_ESCAPE then
+    Self.Close;
+end;
+
+procedure TfrmTelaCredenciaisDoBancoDeDados.TipoDeConexaoChange(Sender: TObject);
+var
+  DicaServidor: String;
+  StatusShow: Boolean;
+begin
+  if TipoDeConexao.ItemIndex = 0 then
+    begin
+      DicaServidor := 'Nome do servidor ex: "localhost"';
+      Servidor.Enabled := False;
+      StatusShow := False;
+      Servidor.Text := '';
+      Porta.Text := '';
+    end
+  else
+    begin
+      DicaServidor := 'IP ou nome do servidor ex: 168.254.245.254';
+      Servidor.Enabled := True;
+      StatusShow := True;
+    end;
+  Porta.Enabled := StatusShow;
+  CaptionServidor.Caption := DicaServidor;
+end;
+
+end.

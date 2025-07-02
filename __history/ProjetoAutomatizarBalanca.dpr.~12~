@@ -1,0 +1,20 @@
+program ProjetoAutomatizarBalanca;
+
+uses
+  Vcl.Forms,
+  uTelaInicial in 'uTelaInicial.pas' {frmTelaPrincipal},
+  uTelaCredenciasDoBancoDeDados in 'uTelaCredenciasDoBancoDeDados.pas' {frmTelaCredenciaisDoBancoDeDados},
+  dmUtils in 'dmUtils.pas' {dtmUtils: TDataModule},
+  uMudarImagemDeFundo in 'uMudarImagemDeFundo.pas' {Form1};
+
+{$R *.res}
+
+begin
+  ReportMemoryLeaksOnShutdown := True;
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfrmTelaPrincipal, frmTelaPrincipal);
+  Application.CreateForm(TdtmUtils, dtmUtils);
+  Application.CreateForm(TForm1, Form1);
+  Application.Run;
+end.

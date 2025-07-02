@@ -1,0 +1,46 @@
+unit uTelaMudarImagemDeFundo;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
+  System.ImageList, Vcl.ImgList, Vcl.Buttons;
+
+type
+  TfrmTelaMudarImagemDeFundo = class(TForm)
+    Image1: TImage;
+    FileOpenDialog: TFileOpenDialog;
+    CaminhoImagem: TEdit;
+    frmTelaImagemDeFundo: TLabel;
+    SpeedButton1: TSpeedButton;
+    ImageList1: TImageList;
+    procedure FileOpenDialogFileOkClick(Sender: TObject; var CanClose: Boolean);
+    procedure SpeedButton1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  frmTelaMudarImagemDeFundo: TfrmTelaMudarImagemDeFundo;
+
+implementation
+
+{$R *.dfm}
+
+procedure TfrmTelaMudarImagemDeFundo.FileOpenDialogFileOkClick(Sender: TObject; var CanClose:
+    Boolean);
+begin
+  if FileOpenDialog.FileName <> '' then
+    CaminhoImagem.Text := FileOpenDialog.FileName;
+end;
+
+procedure TfrmTelaMudarImagemDeFundo.SpeedButton1Click(Sender: TObject);
+begin
+  FileOpenDialog.Execute;
+
+end;
+
+end.

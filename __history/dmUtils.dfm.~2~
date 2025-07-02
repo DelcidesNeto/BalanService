@@ -1,0 +1,12 @@
+object dtmUtils: TdtmUtils
+  Height = 480
+  Width = 640
+  object Query: TFDQuery
+    Left = 168
+    Top = 192
+  end
+  object Banco: TFDConnection
+    Left = 248
+    Top = 120
+  end
+end
